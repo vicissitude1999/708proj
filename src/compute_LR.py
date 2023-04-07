@@ -82,8 +82,10 @@ def parse_args():
     parser.add_argument("--dataset", type=str, default="mnist")
     parser.add_argument("--batchSize", type=int, default=1)
     parser.add_argument('--repeat', type=int, default=200, help='repeat for comute IWAE bounds')
+    
     parser.add_argument('--num_iter', type=int, default=100, help='number of iters to optimize')
-    parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
+    parser.add_argument('--lr', type=float, default=2e-4, help='adam learning rate')
+    parser.add_argument('--beta1', type=float, default=0.9, help='beta1 for adam')
     
     opt = parser.parse_args()
     
@@ -131,9 +133,9 @@ def main():
     elif opt.dataset == "mnist":
         test_data = dset.MNIST(root=opt.datadir, train=False, download=True, transform=transform)
     elif opt.dataset == "cifar10":
-        test_data = dset.CIFAR10(root=opt.datadir, download=True, train = False, transform=transform)
+        test_data = dset.CIFAR10(root=opt.datadir, download=True, train=False, transform=transform)
     elif opt.dataset == "svhn":
-        test_data = dset.SVHN(root=opt.datadir, download=True, split="train")
+        test_data = dset.SVHN(root=opt.datadir, download=True, split="test", transform=transform)
     test_queue = torch.utils.data.DataLoader(test_data, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers)
     
     
@@ -189,13 +191,14 @@ def main():
         netE_copy.eval()
         optimizer = optim.Adam(netE_copy.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=5e-5)
         target = (xi.view(-1)*255).to(torch.int64)
+        
         for it in range(opt.num_iter):
             z, mu, logvar = netE_copy(xi)
             recon = netG(z)
             recon = recon.contiguous()
-            recon = recon.view(-1, 256)
+            recon = recon.view(-1, 256) # distribution over 256 classes
             
-            recl = loss_fn(recon, target)
+            recl = loss_fn(recon, target) # target labels
             recl = torch.sum(recl) / b
             kld = KL_div(mu,logvar)
             loss =  recl + kld.mean()
@@ -210,10 +213,10 @@ def main():
         NLL_regret = np.append(NLL_regret, regret)
         
         print(f"Image {i:d} [before] {NLL_loss_before:.3f} [after] {NLL_loss_after:.3f} [diff] {regret:.3f}")
-        if i >= 499: # test for 500 samples
+        if i >= 1000: # test for 5000 samples
             break
-    np.save(os.path.join(opt.savedir, f"{opt.dataset}_NLL.npy"), NLL)
-    np.save(os.path.join(opt.savedir, f"{opt.dataset}_regret.npy"), NLL_regret)
+    np.save(os.path.join(opt.savedir, f"NLL.npy"), NLL)
+    np.save(os.path.join(opt.savedir, f"regret.npy"), NLL_regret)
     
 
 if __name__ == "__main__":
