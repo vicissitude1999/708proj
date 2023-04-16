@@ -11,6 +11,7 @@ from tqdm import tqdm
 from addict import Dict
 
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -18,6 +19,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 import torch.utils.data
+from torchvision.utils import save_image
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
 from torch.autograd import Variable
@@ -25,6 +27,7 @@ import torch.nn.functional as F
 
 import utils
 import DCGAN_VAE_pixel as DVAE
+
 
 
 # def parse_args():
@@ -173,17 +176,29 @@ def main():
         
         for step, (x, y) in enumerate(train_queue):
             x = x.to(device, non_blocking=True)
+            save_image(x, "orig.png")
+            # add in contour: gray(orig) - gray(Gaussian(orig))
+            gray_orig = transforms.Grayscale(num_output_channels=1)(x)
+            save_image(gray_orig, "gray_orig.png")
+            gaus_orig = transforms.GaussianBlur(kernel_size=7)(x)
+            save_image(gaus_orig, "blur.png")
+            gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
+            save_image(gray_blur, "gray_blur.png")
+            contour = - gray_orig + gray_blur
+            save_image(contour, "contour.png")
+            x = torch.cat((contour, x), dim=1)
+            breakpoint()
             
             if opt.perturbed:
                 x = perturb(x, opt.ratio, device)
             
             b = x.size(0)
             target = Variable(x.data.view(-1) * 255).long()
-            [z,mu,logvar] = netE(x)
-            recon = netG(z)
+            [z,mu,logvar] = netE(x) # 64,100,1,1
+            recon = netG(z) # 
             
             recon = recon.contiguous()
-            recon = recon.view(-1, 256)
+            recon = recon.view(-1, 256) # 262144,256
             recl = loss_fn(recon, target)
             recl = torch.sum(recl) / b
             kld = KL_div(mu,logvar).mean()
@@ -191,7 +206,8 @@ def main():
             
             optimizer1.zero_grad()
             optimizer2.zero_grad()
-            loss.backward(retain_graph=True)
+            # loss.backward(retain_graph=True)
+            loss.backward()
             optimizer1.step()
             optimizer2.step()
             

@@ -7,7 +7,7 @@
     "report_freq": 200,
 
     "imageSize": 32,
-    "nc": 3,
+    "nc": 4,
     "nz": 100,
     "ngf": 32,
     "niter": 200,
