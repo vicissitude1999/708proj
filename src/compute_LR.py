@@ -143,8 +143,13 @@ def main():
     netG = DVAE.DCGAN_G(opt.imageSize, opt.nz, opt.nc, opt.ngf, opt.ngpu).to(device)
     netE = DVAE.Encoder(opt.imageSize, opt.nz, opt.nc, opt.ngf, opt.ngpu).to(device)
     ckpt = torch.load(os.path.join(opt.train_dir, "best.ckpt"))
-    netG.load_state_dict(ckpt["netG"])
-    netE.load_state_dict(ckpt["netE"])
+    
+    # ----------------------------------------------- #
+    # netG.load_state_dict(ckpt["netG"])
+    # netE.load_state_dict(ckpt["netE"])
+    # need to set strict=False so that the channel increase does not cause error
+    netG.load_state_dict(ckpt["netG"], strict=False)
+    netE.load_state_dict(ckpt["netE"], strict=False)
     netG.eval()
     netE.eval()
     
@@ -156,8 +161,17 @@ def main():
         
         with torch.no_grad():
             x = xi.expand(opt.repeat, -1, -1, -1).contiguous()
+            if x.shape[1] == 3:
+                # ----------------------------------------------- #
+                # add in contour: gray(orig) - gray(Gaussian(orig))
+                gray_orig = transforms.Grayscale(num_output_channels=1)(x)
+                gaus_orig = transforms.GaussianBlur(kernel_size=7)(x)
+                gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
+                contour = (gray_orig - gray_blur).clamp(0, 1)
+                x = torch.cat((contour, x), dim=1).clone().detach()
+            
             for batch_number in range(5):
-                x = x.to(device, non_blocking=True)
+                x = x.to(device, non_blocking=True)                
                 b = x.size(0)
                 
                 [z, mu, logvar] = netE(x)
@@ -180,12 +194,29 @@ def main():
     for i, (xi, _) in enumerate(test_queue):
         x = xi.expand(opt.repeat, -1, -1, -1).contiguous()
         
+        # ----------------------------------------------- #
+        # add in contour: gray(orig) - gray(Gaussian(orig))
+        gray_orig = transforms.Grayscale(num_output_channels=1)(x)
+        gaus_orig = transforms.GaussianBlur(kernel_size=7)(x)
+        gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
+        contour = (gray_orig - gray_blur).clamp(0, 1)
+        x = torch.cat((contour, x), dim=1).clone().detach()
+        
         # compute the negative log-likelihood before optimizing q(z|x)
         NLL_loss_before = nll_helper(netE).detach().cpu().numpy()
         NLL = np.append(NLL, NLL_loss_before)
     
         # optimize wrt to the single sample
         xi = xi.to(device, non_blocking=True)
+        
+        # ----------------------------------------------- #
+        # add in contour: gray(orig) - gray(Gaussian(orig))
+        gray_orig = transforms.Grayscale(num_output_channels=1)(xi)
+        gaus_orig = transforms.GaussianBlur(kernel_size=7)(xi)
+        gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
+        contour = (gray_orig - gray_blur).clamp(0, 1)
+        xi = torch.cat((contour, xi), dim=1).clone().detach()
+        
         b = xi.size(0)
         netE_copy = copy.deepcopy(netE)
         netE_copy.eval()
