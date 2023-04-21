@@ -199,8 +199,9 @@ def main():
         gray_orig = transforms.Grayscale(num_output_channels=1)(x)
         gaus_orig = transforms.GaussianBlur(kernel_size=7)(x)
         gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
-        contour = (gray_orig - gray_blur).clamp(0, 1)
-        x = torch.cat((contour, x), dim=1).clone().detach()
+        contour = gray_orig - gray_blur
+        contour = (0.6-contour*1.5).clamp(0, 1)
+        x = torch.cat((contour, x), dim=1).detach()
         
         # compute the negative log-likelihood before optimizing q(z|x)
         NLL_loss_before = nll_helper(netE).detach().cpu().numpy()
@@ -214,8 +215,9 @@ def main():
         gray_orig = transforms.Grayscale(num_output_channels=1)(xi)
         gaus_orig = transforms.GaussianBlur(kernel_size=7)(xi)
         gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
-        contour = (gray_orig - gray_blur).clamp(0, 1)
-        xi = torch.cat((contour, xi), dim=1).clone().detach()
+        contour = gray_orig - gray_blur
+        contour = (0.6-contour*1.5).clamp(0, 1)
+        xi = torch.cat((contour, xi), dim=1).detach()
         
         b = xi.size(0)
         netE_copy = copy.deepcopy(netE)

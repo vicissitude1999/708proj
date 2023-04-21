@@ -177,17 +177,18 @@ def main():
         for step, (x, y) in enumerate(train_queue):
             x = x.to(device, non_blocking=True)
             
-            # save_image(x, "orig.png")
-            # # add in contour: gray(orig) - gray(Gaussian(orig))
+            save_image(x, "orig.png")
+            # add in contour: gray(orig) - gray(Gaussian(orig))
             gray_orig = transforms.Grayscale(num_output_channels=1)(x)
             # save_image(gray_orig, "gray_orig.png")
-            gaus_orig = transforms.GaussianBlur(kernel_size=7)(x)
+            gaus_orig = transforms.GaussianBlur(kernel_size=5)(x)
             # save_image(gaus_orig, "blur.png")
             gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
             # save_image(gray_blur, "gray_blur.png")
-            contour = (gray_orig - gray_blur).clamp(0, 1)
+            contour = gray_orig - gray_blur
+            contour = (0.6-contour*1.5).clamp(0, 1)
             # save_image(contour, "contour.png")
-            x = torch.cat((contour, x), dim=1).clone().detach()
+            x = torch.cat((contour, x), dim=1).detach()
             
             if opt.perturbed:
                 x = perturb(x, opt.ratio, device)
