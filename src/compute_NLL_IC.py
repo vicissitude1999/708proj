@@ -20,9 +20,11 @@ import torchvision.transforms as transforms
 from torch.autograd import Variable
 import torch.nn.functional as F
 from torchvision.datasets import ImageFolder
+import cv2
 
 import utils
 import DCGAN_VAE_pixel as DVAE
+
 
 
 class CustomImageFolder(ImageFolder):
@@ -86,6 +88,8 @@ def parse_args():
     parser.add_argument('--num_iter', type=int, default=100, help='number of iters to optimize')
     parser.add_argument('--lr', type=float, default=2e-4, help='adam learning rate')
     parser.add_argument('--beta1', type=float, default=0.9, help='beta1 for adam')
+    
+    parser.add_argument('--ic_type', default='png', help='type of complexity measure, choose between png and jp2')
     
     opt = parser.parse_args()
     
@@ -189,7 +193,7 @@ def main():
         
         return nll
     
-    NLL, NLL_regret = [], []
+    NLL, NLL_IC = [], []
     
     for i, (xi, _) in enumerate(test_queue):
         x = xi.expand(opt.repeat, -1, -1, -1).contiguous()
@@ -204,52 +208,27 @@ def main():
         x = torch.cat((contour, x), dim=1).detach()
         
         # compute the negative log-likelihood before optimizing q(z|x)
-        NLL_loss_before = nll_helper(netE).detach().cpu().numpy()
-        NLL = np.append(NLL, NLL_loss_before)
-    
-        # optimize wrt to the single sample
-        xi = xi.to(device, non_blocking=True)
+        NLL_loss = nll_helper(netE).detach().cpu().numpy()
+        NLL = np.append(NLL, NLL_loss)
+
+        img = x[0][:-1].permute(1,2,0)
+        img = img.detach().cpu().numpy()
+        img *= 255
+        img = img.astype(np.uint8)
+        if opt.ic_type == 'jp2':
+            img_encoded=cv2.imencode('.jp2',img)
+        elif opt.ic_type == 'png':
+            img_encoded=cv2.imencode('.png',img,[int(cv2.IMWRITE_PNG_COMPRESSION),9])
+        else:
+            raise NotImplementedError("choose ic type between jp2 and png")
+        IC = len(img_encoded[1])*8
+        NLL_IC = np.append(NLL_IC, NLL_loss - IC)
         
-        # ----------------------------------------------- #
-        # add in contour: gray(orig) - gray(Gaussian(orig))
-        gray_orig = transforms.Grayscale(num_output_channels=1)(xi)
-        gaus_orig = transforms.GaussianBlur(kernel_size=9, sigma=3)(xi)
-        gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
-        contour = gray_orig - gray_blur
-        contour = (contour+0.5).clamp(0, 1)
-        xi = torch.cat((contour, xi), dim=1).detach()
-        
-        b = xi.size(0)
-        netE_copy = copy.deepcopy(netE)
-        netE_copy.eval()
-        optimizer = optim.Adam(netE_copy.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999), weight_decay=5e-5)
-        target = (xi.view(-1)*255).to(torch.int64)
-        
-        for it in range(opt.num_iter):
-            z, mu, logvar = netE_copy(xi)
-            recon = netG(z)
-            recon = recon.contiguous()
-            recon = recon.view(-1, 256) # distribution over 256 classes
-            
-            recl = loss_fn(recon, target) # target labels
-            recl = torch.sum(recl) / b
-            kld = KL_div(mu,logvar)
-            loss =  recl + kld.mean()
-            
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-        
-        # compute the negative log-likelihood after optimizing q(z|x)
-        NLL_loss_after = nll_helper(netE_copy).detach().cpu().numpy()
-        regret = NLL_loss_before - NLL_loss_after
-        NLL_regret = np.append(NLL_regret, regret)
-        
-        print(f"Image {i:d} [before] {NLL_loss_before:.3f} [after] {NLL_loss_after:.3f} [diff] {regret:.3f}")
+        print(f"Image {i:d} [before] {NLL_loss:.3f} [after] {(NLL_loss - IC):.3f} [diff] {IC:.3f}")
         if i >= 1000: # test for 1000 samples
             break
     np.save(os.path.join(opt.savedir, f"NLL.npy"), NLL)
-    np.save(os.path.join(opt.savedir, f"regret.npy"), NLL_regret)
+    np.save(os.path.join(opt.savedir, f"NLL_IC.npy"), NLL_IC)
     
 
 if __name__ == "__main__":

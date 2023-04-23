@@ -97,7 +97,6 @@ def perturb(x, mu, device):
     perturbed_x = ((1-mask)*x + mask*noise)/255.
     return perturbed_x
 
-
 def main():
     if not torch.cuda.is_available():
         print("no gpu device available")
@@ -177,16 +176,16 @@ def main():
         for step, (x, y) in enumerate(train_queue):
             x = x.to(device, non_blocking=True)
             
-            save_image(x, "orig.png")
+            # save_image(x, "orig.png")
             # add in contour: gray(orig) - gray(Gaussian(orig))
             gray_orig = transforms.Grayscale(num_output_channels=1)(x)
             # save_image(gray_orig, "gray_orig.png")
-            gaus_orig = transforms.GaussianBlur(kernel_size=5)(x)
+            gaus_orig = transforms.GaussianBlur(kernel_size=9, sigma=3)(x)
             # save_image(gaus_orig, "blur.png")
             gray_blur = transforms.Grayscale(num_output_channels=1)(gaus_orig)
             # save_image(gray_blur, "gray_blur.png")
             contour = gray_orig - gray_blur
-            contour = (0.6-contour*1.5).clamp(0, 1)
+            contour = (contour+0.5).clamp(0, 1)
             # save_image(contour, "contour.png")
             x = torch.cat((contour, x), dim=1).detach()
             
