@@ -15,7 +15,7 @@ def plot_roc_curve(fpr, tpr, output_dir, label):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver Operating Characteristic (ROC) Curve')
     plt.legend()
-    plt.savefig(os.path.join(output_dir, "roc_curve.jpg"))
+    plt.savefig(os.path.join(output_dir, f"roc_curve_{label}.jpg"))
 
 
 def parse_args():
@@ -77,7 +77,7 @@ def main():
 
     fpr, tpr, thresholds = metrics.roc_curve(label, combined, pos_label=0)
 
-    plot_roc_curve(fpr, tpr, output_dir, label="LR")
+    plot_roc_curve(fpr, tpr, output_dir, label="IC")
 
     rocauc = metrics.auc(fpr, tpr, )
     print('AUC for likelihood scaled with input complexity is: ', rocauc)
@@ -94,7 +94,7 @@ def main():
 
     fpr, tpr, thresholds = metrics.roc_curve(label, combined, pos_label=0)
 
-    plot_roc_curve(fpr, tpr, output_dir, label="NLL")
+    plot_roc_curve(fpr, tpr, output_dir, label="NLL_IC")
 
     rocauc = metrics.auc(fpr, tpr)
     print('AUC for nll is: ', rocauc)

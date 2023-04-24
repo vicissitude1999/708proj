@@ -130,7 +130,7 @@ def main():
     with open(os.path.join(opt.savedir, "opt.json"), "w") as f:
         json.dump(opt, f, indent=4)
     
-    transform = transforms.Compose([transforms.Resize((opt.imageSize)), transforms.ToTensor()])
+    transform = transforms.Compose([transforms.Resize((opt.imageSize)), transforms.CenterCrop((opt.imageSize)), transforms.ToTensor()])
     # setup dataset
     if opt.dataset == "fmnist":
         test_data = dset.FashionMNIST(root=opt.datadir, train=False, download=True, transform=transform)
@@ -140,6 +140,19 @@ def main():
         test_data = dset.CIFAR10(root=opt.datadir, download=True, train=False, transform=transform)
     elif opt.dataset == "svhn":
         test_data = dset.SVHN(root=opt.datadir, download=True, split="test", transform=transform)
+    elif opt.dataset == "lsun":
+        test_data = dset.LSUN(root=opt.datadir, classes="test", transform=transform)
+    elif opt.dataset == "celeba":
+        test_data = dset.CelebA(root=opt.datadir, split="test", download=True, transform=transform)
+    elif opt.dataset == "cars":
+        test_data = dset.StanfordCars(root=opt.datadir, split="test", download=True, transform=transform)
+    elif opt.dataset == "country":
+        test_data = dset.Country211(root=opt.datadir, split="test", download=True, transform=transform)
+    elif opt.dataset == "kmnist":
+        test_data = dset.KMNIST(root=opt.datadir, train=False, download=True, transform=transform)
+    elif opt.dataset == "omniglot":
+        test_data = dset.Omniglot(root=opt.datadir, background=False, download=True, transform=transform)
+    
     test_queue = torch.utils.data.DataLoader(test_data, batch_size=opt.batchSize, shuffle=True, num_workers=opt.workers)
     
     
@@ -165,6 +178,9 @@ def main():
         
         with torch.no_grad():
             x = xi.expand(opt.repeat, -1, -1, -1).contiguous()
+            if x.shape[1] == 1:
+                x = x.expand(-1, 3, -1, -1)
+            
             if x.shape[1] == 3:
                 # ----------------------------------------------- #
                 # add in contour: gray(orig) - gray(Gaussian(orig))
@@ -199,6 +215,8 @@ def main():
         x = xi.expand(opt.repeat, -1, -1, -1).contiguous()
         
         # ----------------------------------------------- #
+        if x.shape[1] == 1:
+            x = x.expand(-1, 3, -1, -1)
         # add in contour: gray(orig) - gray(Gaussian(orig))
         gray_orig = transforms.Grayscale(num_output_channels=1)(x)
         gaus_orig = transforms.GaussianBlur(kernel_size=9, sigma=3)(x)
