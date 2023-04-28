@@ -1,44 +1,70 @@
-# Reproduce Likelihood regret
+# Out-of-Distrbution Detection
+
 ## Training
+### Training with addition of contour
+In our data augmentation implementation, contour information of an image is added as the 4th channel before passing it into the VAE for training. The contour implementation is added to `train.py`. Model parameters are included in the json files in the `/tools` folder.
 
-python src/train.py tools/train_fmnist.json
-
-## Testing (computing LR)
-
-Specify the training run and dataset name.
+After training, there will be a new folder containing saved model under corresponding dataset folder in the`/output` directory. This folder name will be used in the command line during testing.
 
 Example:
-python src/compute_LR.py --train_dir output/fmnist/20230309-213438 --dataset fmnist
+```
+python src/train.py tools/train_cifar10.json
+```
+### Training baseline with no contour
+```
+python src/train_orig.py tools/train_cifar10.json
+```
 
-python src/compute_LR.py --train_dir output/fmnist/20230309-213438 --dataset mnist
+## Testing 
+### Computing Likelihood Regret.
+Compute the Likelihood Regret and prepare for plotting. Specify the training directory (folder saved when training the model) and dataset name.
 
-python src/compute_LR.py --train_dir output/cifar10/20230309-213812 --dataset cifar10
+After running, there will be a new folder under the training directory, with name like `test-20230422-135210`. This will be used to plot the histogram and ROC curve.
 
-python src/compute_LR.py --train_dir output/cifar10/20230309-213812 --dataset svhn
+Example with contour:
+```
+python src/compute_LR.py --train_dir output/cifar10/20230421-222638 --dataset cifar10
+python src/compute_LR.py --train_dir output/cifar10/20230421-222638 --dataset svhn
+```
+Example baseline without contour:
+```
+python src/compute_LR_orig.py --train_dir output/cifar10/20230421-222638 --dataset cifar10
+python src/compute_LR_orig.py --train_dir output/cifar10/20230421-222638 --dataset svhn
+```
 
+### Computing NLL-IC
+Compute the Negative Log-Likelihood scaled with Input Complexiy and prepare for plotting.
+
+Example with contour:
+```
+python src/compute_NLL_IC.py --train_dir output/cifar10/20230421-222638 --dataset cifar10
+python src/compute_NLL_IC.py --train_dir output/cifar10/20230421-222638 --dataset svhn
+```
+Example baseline without contour:
+```
+python src/compute_NLL_IC_orig.py --train_dir output/cifar10/20230421-222638 --dataset cifar10
+python src/compute_NLL_IC_orig.py --train_dir output/cifar10/20230421-222638 --dataset svhn
+```
 
 ## Plot histograms and ROC curves
 
 Specify two arguments, --indist_dir and --ood_dir, each containing the NLL and LR files.
-It will create a directory in the training directory named "metrics-{indist dataset}-{outdist dataset}".
+After running, there will be a directory in the training directory named `metrics-{indist dataset}-{outdist dataset}`.
 
-For example:
-Trained on FMNIST, test on FMNIST and MNIST:
-
+Example with LR as detection score:
+```
 python src/plt.py \
---indist_dir output/fmnist/20230309-213438/test-20230406-193701 \
---ood_dir output/fmnist/20230309-213438/test-20230406-193706
-
-Trained on Cifar10, test on Cifar10 and SVHN:
-
-python src/plt.py \
---indist_dir output/cifar10/20230309-213812/test-20230406-113230 \
---ood_dir output/cifar10/20230309-213812/test-20230406-113234
-
-
+--indist_dir output/cifar10/20230421-222638/test-20230422-135210 \
+--ood_dir output/cifar10/20230421-222638/test-20230422-141140
+```
+Example with NLL-IC as detection score:
+```
+python src/plt_NLL_IC.py \
+--indist_dir output/cifar10/20230421-222638/test-20230423-001222
+--ood_dir output/cifar10/20230421-222638/test-20230423-001539
+```
 
 ## Pretrained models
-
-https://drive.google.com/drive/folders/1ZobRhezwqcTntfZir2M1e88g3FhqZNf6?usp=share_link
-
+Our trained `/output` directory can be found here:
+https://drive.google.com/drive/folders/1ZobRhezwqcTntfZir2M1e88g3FhqZNf6?usp=share_link.
 Download from the link and put the output/ directory in 708proj/.
