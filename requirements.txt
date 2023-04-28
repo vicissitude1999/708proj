@@ -1,0 +1,11 @@
+addict
+matplotlib
+numpy
+packaging
+Pillow
+pyparsing
+tensorboard
+torch
+torchvision
+tqdm
+
